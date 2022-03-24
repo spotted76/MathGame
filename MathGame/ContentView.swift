@@ -76,20 +76,41 @@ struct GameView : View {
     @State var answers = [0,0,0,0]
     @State var correctAnswer = 0
     @State var correctIndex = 0
+    
+    @State private var cardRotation = 0.0
+    
+    @State private var gameFinished = true
+    @State private var answeredCorrectly = true
+    
+    @State private var gamesPlayed = 0
+    @State private var runningScore = 0
+    @State private var showingAlert = false
+    
 
     var body : some View {
         NavigationView {
             ZStack {
                 LinearGradient(colors: [.white, .gray, .white], startPoint: .top, endPoint: .bottom)
                 VStack {
-                    Text("\(questions.One) X \(questions.Two)")
+                    
+                    Spacer()
+                    Text( answeredCorrectly == true ? "Correct" : "Incorrect")
+                        .foregroundColor( answeredCorrectly == true ? .green : .red)
+                        .font(.largeTitle).bold()
+                        .shadow(radius: 5.0)
+                        .opacity(gameFinished == false ? 0 : 1)
+                    
+                    Text(gameFinished == false ?
+                         "\(questions.One) X \(questions.Two)" :
+                         "\(correctAnswer)")
                         .font(.system(size: 75, weight: .bold, design: .default))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 175)
+                        .frame(height: 225)
                         .background(.thinMaterial)
                         .clipShape(RoundedRectangle(cornerRadius: 25))
                         .padding()
-                
+                        .rotation3DEffect(Angle(degrees: cardRotation), axis: (x: 0, y: 1, z: 0))
+                                    
                     
                     Group {
                         VStack(alignment: .center, spacing: 40) {
@@ -116,7 +137,14 @@ struct GameView : View {
                         }
                         
                     }
-                                            
+                    
+                    Spacer()
+                    HStack {
+                        Text("Score:  \(runningScore) / \(gamesPlayed)")
+                            .font(.title2)
+                            .foregroundColor(.primary)
+                    }
+                    Spacer()
                 }
                 .toolbar{
                     
@@ -129,12 +157,30 @@ struct GameView : View {
                 .onAppear() {
                     buildQuestion()
                 }
+                .alert("Game Over", isPresented: $showingAlert) {
+                    Button("OK") {
+                        gamesPlayed = 0
+                        runningScore = 0
+                        buildQuestion()
+                    }
+                } message: {
+                    Text("""
+Congratulations!
+You answered \(runningScore) out of \(gamesPlayed) correctly!
+"""
+)
+                }
             }
             .ignoresSafeArea()
         }
     }
     
     func buildQuestion() {
+        
+        //Game just started, so game finished is false
+        gameFinished = false
+        
+        //Generate the question
         questions.One = Int.random(in: 1...difficulty)
         questions.Two = Int.random(in: 1...difficulty)
         
@@ -156,15 +202,31 @@ struct GameView : View {
     }
     
     func buttonSelected(answer : Int) {
+        
+        //Check if answered right or wrong
         if answers[answer] == correctAnswer {
-            print("YOU GOT IT RIGHT")
+            answeredCorrectly = true
+            runningScore += 1
         }
         else {
-            print("YOU ARE INCORRECT")
+            answeredCorrectly = false
         }
         
-        buildQuestion()
+        // Run the final parts of the game and animation
+        gameFinished = true
+        withAnimation(.easeInOut) {
+            cardRotation += 720.0
+        }
         
+        gamesPlayed += 1
+        
+        if gamesPlayed != numGames {
+            // Wait a short period of time before starting the next question
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: buildQuestion)
+        }
+        else {
+            showingAlert = true
+        }
     }
 
 }
